@@ -20,7 +20,7 @@ func Listen(group string, dataID string, handler ConfigHandler) {
 	for {
 		if isUpdated(group, dataID, lastMD5) {
 			var newValue string
-			newValue, lastMD5 = GetConfig(group, dataID)
+			newValue, lastMD5 = getConfigWithMD5(group, dataID)
 			handler(newValue)
 		}
 	}

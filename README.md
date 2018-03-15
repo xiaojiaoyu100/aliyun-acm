@@ -1,6 +1,6 @@
 # Aliyun ACM
 
-*maintainer: CJK regan.cjk@gmail.com*
+*maintainer: CJK <regan.cjk@gmail.com>*
 
 ## Usage
 
@@ -8,17 +8,17 @@
 import "gitlab.xinghuolive.com/golang/aliyun-acm"
 
 func init() {
+    // Setup once.
 	acm.Setup(
 		"EndPoint",
-		"Tenant",
+		"Tenant", // Use tenant to separate deployment environment.
 		"AccessKey",
 		"SecretKey",
 	)
-}
 
-func main() {
-    // Get static config
-    value, md5 := acm.GetConfig("DEFAULT_GROUP", "dataID")
+    // Get static config.
+    value := acm.GetConfig("DEFAULT_GROUP", "dataID")
+    // Note that value has been decoded from GBK to UTF-8.
     fmt.Println(value)
 
     // Listen on dynamic config in goroutine
