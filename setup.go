@@ -32,7 +32,7 @@ func GetClient(endpoint string, tenant string, accessKey string, secretKey strin
 	body, err := ioutil.ReadAll(resp.Body)
 	e.Panic(err)
 
-	client.ServerIP = strings.TrimSpace(string(body)) + ":8080"
+	client.ServerIP = strings.Split(string(body), "\n")[0] + ":8080"
 
 	return client
 }
