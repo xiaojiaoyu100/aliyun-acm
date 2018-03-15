@@ -1,7 +1,6 @@
 package acm
 
 import (
-	"fmt"
 	"io/ioutil"
 	"strings"
 
@@ -36,5 +35,4 @@ func Setup(endpoint string, tenant string, accessKey string, secretKey string) {
 	e.Panic(err)
 
 	client.ServerIP = strings.TrimSpace(string(body)) + ":8080"
-	fmt.Println(client)
 }

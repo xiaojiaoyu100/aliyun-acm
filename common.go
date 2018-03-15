@@ -12,10 +12,11 @@ const (
 	headerAccessKey = "Spas-AccessKey"
 	headerTS        = "timeStamp"
 	headerSignature = "Spas-Signature"
+	headerTimeout   = "longPullingTimeout"
 )
 
 var httpClient = &http.Client{
-	Timeout: 10 * time.Second,
+	Timeout: time.Minute,
 }
 
 func getSign(encryptText, encryptKey string) string {

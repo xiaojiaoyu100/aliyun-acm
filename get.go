@@ -1,6 +1,8 @@
 package acm
 
 import (
+	"bytes"
+	"crypto/md5"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -13,8 +15,8 @@ import (
 	"golang.org/x/text/transform"
 )
 
-// Get gets config value from ACM.
-func Get(group string, dataID string) string {
+// GetConfig gets config value in UTF-8 (with MD5) from ACM.
+func GetConfig(group string, dataID string) (string, string) {
 	url := fmt.Sprintf("http://%s/diamond-server/config.co?dataId=%s&group=%s&tenant=%s",
 		client.ServerIP, dataID, group, client.Tenant)
 
@@ -34,8 +36,12 @@ func Get(group string, dataID string) string {
 	e.Panic(err)
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(transform.NewReader(resp.Body, simplifiedchinese.GBK.NewDecoder()))
+	body, err := ioutil.ReadAll(resp.Body)
 	e.Panic(err)
 
-	return string(body)
+	contentMD5 := fmt.Sprintf("%x", md5.Sum(body))
+	decodedBody, err := ioutil.ReadAll(transform.NewReader(bytes.NewReader(body), simplifiedchinese.GBK.NewDecoder()))
+	e.Panic(err)
+
+	return string(decodedBody), contentMD5
 }
