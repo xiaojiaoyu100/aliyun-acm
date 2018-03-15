@@ -16,8 +16,8 @@ type Client struct {
 	ServerIP  string
 }
 
-// Setup sets configs of ACM.
-func Setup(endpoint string, tenant string, accessKey string, secretKey string) Client {
+// GetClient sets configs of ACM and return client struct.
+func GetClient(endpoint string, tenant string, accessKey string, secretKey string) Client {
 	client := Client{
 		EndPoint:  endpoint,
 		Tenant:    tenant,

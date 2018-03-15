@@ -11,7 +11,7 @@ var client acm.Client
 
 func init() {
     // Setup once.
-	client = acm.Setup(
+	client = acm.GetClient(
 		"EndPoint",
 		"Tenant", // Use tenant to separate deployment environment.
 		"AccessKey",
