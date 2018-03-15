@@ -7,9 +7,11 @@
 ```go
 import "gitlab.xinghuolive.com/golang/aliyun-acm"
 
+var client acm.Client
+
 func init() {
     // Setup once.
-	acm.Setup(
+	client = acm.Setup(
 		"EndPoint",
 		"Tenant", // Use tenant to separate deployment environment.
 		"AccessKey",
@@ -17,12 +19,12 @@ func init() {
 	)
 
     // Get static config.
-    value := acm.GetConfig("DEFAULT_GROUP", "dataID")
+    value := client.GetConfig("DEFAULT_GROUP", "dataID")
     // Note that value has been decoded from GBK to UTF-8.
     fmt.Println(value)
 
     // Listen on dynamic config in goroutine
-	go acm.Listen("DEFAULT_GROUP", "dataID", func(newValue string) {
+	go client.Listen("DEFAULT_GROUP", "dataID", func(newValue string) {
         // Do something with new config value while update.
 		fmt.Println(newValue)
 	})

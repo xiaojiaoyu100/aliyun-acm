@@ -16,11 +16,9 @@ type Client struct {
 	ServerIP  string
 }
 
-var client Client
-
 // Setup sets configs of ACM.
-func Setup(endpoint string, tenant string, accessKey string, secretKey string) {
-	client = Client{
+func Setup(endpoint string, tenant string, accessKey string, secretKey string) Client {
+	client := Client{
 		EndPoint:  endpoint,
 		Tenant:    tenant,
 		AccessKey: accessKey,
@@ -35,4 +33,6 @@ func Setup(endpoint string, tenant string, accessKey string, secretKey string) {
 	e.Panic(err)
 
 	client.ServerIP = strings.TrimSpace(string(body)) + ":8080"
+
+	return client
 }

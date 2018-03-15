@@ -16,8 +16,8 @@ import (
 )
 
 // GetConfig gets config value in UTF-8 from ACM.
-func GetConfig(group string, dataID string) string {
-	resp := get(group, dataID)
+func (c Client) GetConfig(group string, dataID string) string {
+	resp := c.get(group, dataID)
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(transform.NewReader(resp.Body, simplifiedchinese.GBK.NewDecoder()))
@@ -26,8 +26,8 @@ func GetConfig(group string, dataID string) string {
 	return string(body)
 }
 
-func getConfigWithMD5(group string, dataID string) (string, string) {
-	resp := get(group, dataID)
+func (c Client) getConfigWithMD5(group string, dataID string) (string, string) {
+	resp := c.get(group, dataID)
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
@@ -40,19 +40,19 @@ func getConfigWithMD5(group string, dataID string) (string, string) {
 	return string(decodedBody), contentMD5
 }
 
-func get(group string, dataID string) *http.Response {
+func (c Client) get(group string, dataID string) *http.Response {
 	url := fmt.Sprintf("http://%s/diamond-server/config.co?dataId=%s&group=%s&tenant=%s",
-		client.ServerIP, dataID, group, client.Tenant)
+		c.ServerIP, dataID, group, c.Tenant)
 
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	e.Panic(err)
 
 	ts := strconv.Itoa(int(time.Now().UnixNano() / int64(time.Millisecond)))
-	signText := strings.Join([]string{client.Tenant, group, ts}, "+")
+	signText := strings.Join([]string{c.Tenant, group, ts}, "+")
 
-	sign := getSign(signText, client.SecretKey)
+	sign := getSign(signText, c.SecretKey)
 
-	req.Header.Set(headerAccessKey, client.AccessKey)
+	req.Header.Set(headerAccessKey, c.AccessKey)
 	req.Header.Set(headerTS, ts)
 	req.Header.Set(headerSignature, sign)
 
