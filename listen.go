@@ -3,6 +3,7 @@ package acm
 import (
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -21,6 +22,7 @@ func (c Client) Listen(group string, dataID string, handler ConfigHandler) {
 		if c.isUpdated(group, dataID, lastMD5) {
 			var newValue string
 			newValue, lastMD5 = c.getConfigWithMD5(group, dataID)
+			log.Println(fmt.Sprintf("%s of group %s is updated to %s", dataID, group, lastMD5))
 			handler(newValue)
 		}
 	}
