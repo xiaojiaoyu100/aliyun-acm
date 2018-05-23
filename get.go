@@ -20,6 +20,10 @@ func (c Client) GetConfig(group string, dataID string) string {
 	resp := c.get(group, dataID)
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		return ""
+	}
+
 	body, err := ioutil.ReadAll(transform.NewReader(resp.Body, simplifiedchinese.GBK.NewDecoder()))
 	e.Panic(err)
 
