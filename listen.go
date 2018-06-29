@@ -42,7 +42,10 @@ func (c Client) isUpdated(group string, dataID string, lastMD5 string) bool {
 	req.Header.Set(headerSignature, getSign(content, c.SecretKey))
 
 	resp, err := httpClient.Do(req)
-	e.Panic(err)
+	if err != nil {
+		e.Log(err, "ACM Listen Error")
+		return false
+	}
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
