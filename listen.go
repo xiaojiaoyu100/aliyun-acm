@@ -19,6 +19,7 @@ type ConfigHandler func(newValue string)
 func (c Client) Listen(group string, dataID string, handler ConfigHandler) {
 	lastMD5 := ""
 	for {
+		time.Sleep(time.Second)
 		if c.isUpdated(group, dataID, lastMD5) {
 			var newValue string
 			newValue, lastMD5 = c.getConfigWithMD5(group, dataID)
