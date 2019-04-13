@@ -3,8 +3,6 @@ package acm
 import (
 	"io/ioutil"
 	"strings"
-
-	"gitlab.xinghuolive.com/golang/utils/error"
 )
 
 // Client contains ACM configs.
@@ -17,7 +15,7 @@ type Client struct {
 }
 
 // GetClient sets configs of ACM and return client struct.
-func GetClient(endpoint string, tenant string, accessKey string, secretKey string) Client {
+func GetClient(endpoint string, tenant string, accessKey string, secretKey string) (*Client, error) {
 	client := Client{
 		EndPoint:  endpoint,
 		Tenant:    tenant,
@@ -26,13 +24,17 @@ func GetClient(endpoint string, tenant string, accessKey string, secretKey strin
 	}
 
 	resp, err := httpClient.Get("http://" + endpoint + "/diamond-server/diamond")
-	e.Panic(err)
+	if err != nil {
+		return nil, err
+	}
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
-	e.Panic(err)
+	if err != nil {
+		return nil, err
+	}
 
 	client.ServerIP = strings.Split(string(body), "\n")[0] + ":8080"
 
-	return client
+	return &client, nil
 }

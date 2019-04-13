@@ -3,6 +3,7 @@ package acm
 import (
 	"bytes"
 	"crypto/md5"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -10,46 +11,59 @@ import (
 	"strings"
 	"time"
 
-	"gitlab.xinghuolive.com/golang/utils/error"
 	"golang.org/x/text/encoding/simplifiedchinese"
 	"golang.org/x/text/transform"
 )
 
 // GetConfig gets config value in UTF-8 from ACM.
-func (c Client) GetConfig(group string, dataID string) string {
-	resp := c.get(group, dataID)
+func (c Client) GetConfig(group string, dataID string) (string, error) {
+	resp, err := c.get(group, dataID)
+	if err != nil {
+		return "", err
+	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return ""
+	body, err := ioutil.ReadAll(transform.NewReader(resp.Body, simplifiedchinese.GBK.NewDecoder()))
+	if err != nil {
+		return "", err
 	}
 
-	body, err := ioutil.ReadAll(transform.NewReader(resp.Body, simplifiedchinese.GBK.NewDecoder()))
-	e.Panic(err)
+	if resp.StatusCode != http.StatusOK {
+		return "", errors.New(string(body))
+	}
 
-	return string(body)
+	return string(body), nil
 }
 
-func (c Client) getConfigWithMD5(group string, dataID string) (string, string) {
-	resp := c.get(group, dataID)
+func (c Client) getConfigWithMD5(group string, dataID string) (string, string, error) {
+	resp, err := c.get(group, dataID)
+	if err != nil {
+		return "", "", err
+	}
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
-	e.Panic(err)
+	if err != nil {
+		return "", "", err
+	}
 
 	contentMD5 := fmt.Sprintf("%x", md5.Sum(body))
 	decodedBody, err := ioutil.ReadAll(transform.NewReader(bytes.NewReader(body), simplifiedchinese.GBK.NewDecoder()))
-	e.Panic(err)
+	if err != nil {
+		return "", "", err
+	}
 
-	return string(decodedBody), contentMD5
+	return string(decodedBody), contentMD5, nil
 }
 
-func (c Client) get(group string, dataID string) *http.Response {
+func (c Client) get(group string, dataID string) (*http.Response, error) {
 	url := fmt.Sprintf("http://%s/diamond-server/config.co?dataId=%s&group=%s&tenant=%s",
 		c.ServerIP, dataID, group, c.Tenant)
 
 	req, err := http.NewRequest(http.MethodGet, url, nil)
-	e.Panic(err)
+	if err != nil {
+		return nil, err
+	}
 
 	ts := strconv.Itoa(int(time.Now().UnixNano() / int64(time.Millisecond)))
 	signText := strings.Join([]string{c.Tenant, group, ts}, "+")
@@ -61,7 +75,9 @@ func (c Client) get(group string, dataID string) *http.Response {
 	req.Header.Set(headerSignature, sign)
 
 	resp, err := httpClient.Do(req)
-	e.Panic(err)
+	if err != nil {
+		return nil, err
+	}
 
-	return resp
+	return resp, nil
 }

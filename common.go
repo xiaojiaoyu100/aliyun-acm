@@ -16,7 +16,7 @@ const (
 )
 
 var httpClient = &http.Client{
-	Timeout: time.Minute,
+	Timeout: 10 * time.Second,
 }
 
 func getSign(encryptText, encryptKey string) string {
