@@ -32,6 +32,7 @@ func main() {
 	unit := aliacm.Unit{
 		Group: "your_group",
 		DataID: "your_data_id",
+		FetchOnce: true, // 有且仅拉取一次
 	}
 	d.Add(unit, Handle)
 	select{}
