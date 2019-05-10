@@ -1,37 +1,40 @@
-# Aliyun ACM
+# aliyun-acm
 
-*maintainer: CJK <regan.cjk@gmail.com>*
+aliyun-acm是对[阿里云应用配置管理](https://help.aliyun.com/product/59604.html)的封装
 
 ## Usage
 
 ```go
-var Client *acm.Client
+package main
 
-func init() {
-	// Setup once.
-	var err error
-	Client, err = acm.GetClient(
-		"EndPoint",
-		"Tenant", // Use tenant to separate deployment environment.
-		"AccessKey",
-		"SecretKey",
-	)
-	if err != nil {
-		panic(err)
-	}
+import (
+	"fmt"
+	"github.com/xiaojiaoyu100/aliyun-acm"
+)
 
-	// Get static config.
-	value, err := Client.GetConfig("DEFAULT_GROUP", "dataID")
-	if err != nil {
-		log.Println(err)
-	}
-	// Note that value has been decoded from GBK to UTF-8.
-	fmt.Println(value)
-
-	// Listen on dynamic config in goroutine
-	go Client.Listen("DEFAULT_GROUP", "dataID", func(newValue string) {
-		// Do something with new config value while update.
-		fmt.Println(newValue)
-	})
+func Handle(config aliacm.Config)  {
+	fmt.Println(string(config.Content))
 }
+
+func main() {
+	d, err := aliacm.New(
+		"your_addr",
+		"your_tenant",
+		"your_access_key",
+		"your_secret_key")
+	if err != nil {
+		return
+	}
+	var f = func(h aliacm.Unit, err error) {
+		fmt.Println(err)
+	}
+	d.SetHook(f)
+	unit := aliacm.Unit{
+		Group: "your_group",
+		DataID: "your_data_id",
+	}
+	d.Add(unit, Handle)
+	select{}
+}
+
 ```
