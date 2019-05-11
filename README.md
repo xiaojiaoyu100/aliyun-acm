@@ -12,6 +12,7 @@ import (
 	"github.com/xiaojiaoyu100/aliyun-acm"
 )
 
+
 func Handle(config aliacm.Config)  {
 	fmt.Println(string(config.Content))
 }
@@ -33,9 +34,9 @@ func main() {
 		Group: "your_group",
 		DataID: "your_data_id",
 		FetchOnce: true, // 有且仅拉取一次
+		OnChange: Handle,
 	}
-	d.Add(unit, Handle)
+	d.Add(unit)
 	select{}
 }
-
 ```
