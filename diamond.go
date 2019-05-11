@@ -39,6 +39,7 @@ type Unit struct {
 	Group     string
 	DataID    string
 	FetchOnce bool
+	OnChange  Handler
 	ch        chan Config
 }
 
@@ -90,7 +91,7 @@ func New(addr, tenant, accessKey, secretKey string) (*Diamond, error) {
 }
 
 // Add 添加想要关心的配置单元
-func (d *Diamond) Add(unit Unit, handler Handler) {
+func (d *Diamond) Add(unit Unit) {
 	unit.ch = make(chan Config)
 	d.units = append(d.units, unit)
 	var (
@@ -118,7 +119,7 @@ func (d *Diamond) Add(unit Unit, handler Handler) {
 		for {
 			select {
 			case config := <-unit.ch:
-				handler(config)
+				unit.OnChange(config)
 				if unit.FetchOnce {
 					return
 				}
