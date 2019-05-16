@@ -18,5 +18,7 @@ func (d *Diamond) QueryIP() (string, error) {
 	if !response.Success() {
 		return "", errors.New(response.String())
 	}
-	return strings.TrimSpace(response.String()), nil
+	ips := strings.Split(response.String(), "\n")
+	// TODO: randomly select one from ip list?
+	return ips[0], nil
 }

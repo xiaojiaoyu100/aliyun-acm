@@ -17,5 +17,5 @@ const (
 )
 
 func (u URL) String(addr string) string {
-	return fmt.Sprintf("http://%s:8080%s", addr, u)
+	return fmt.Sprintf("http://%s:8080%s", addr, string(u))
 }
