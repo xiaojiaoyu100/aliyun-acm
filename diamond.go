@@ -4,6 +4,8 @@ import (
 	"log"
 	"time"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/xiaojiaoyu100/cast"
 )
 
@@ -79,6 +81,7 @@ func New(addr, tenant, accessKey, secretKey string) (*Diamond, error) {
 			time.Millisecond*200,
 			time.Millisecond*500,
 		),
+		cast.WithLogLevel(logrus.WarnLevel),
 	)
 	if err != nil {
 		return nil, err
