@@ -1,6 +1,7 @@
 package aliacm
 
 import (
+	"math/rand"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -63,6 +64,7 @@ type Diamond struct {
 	c       *cast.Cast
 	units   []Unit
 	errHook Hook
+	r       *rand.Rand
 }
 
 // New 产生Diamond实例
@@ -85,9 +87,14 @@ func New(addr, tenant, accessKey, secretKey string) (*Diamond, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	s := rand.NewSource(time.Now().UnixNano())
+	r := rand.New(s)
+
 	d := &Diamond{
 		option: option,
 		c:      c,
+		r:      r,
 	}
 	return d, nil
 }

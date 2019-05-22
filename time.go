@@ -1,6 +1,8 @@
 package aliacm
 
-import "time"
+import (
+	"time"
+)
 
 const (
 	apiTimeout = 3 * time.Second
