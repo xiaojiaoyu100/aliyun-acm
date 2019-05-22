@@ -1,7 +1,6 @@
 package aliacm
 
 import (
-	"log"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -60,10 +59,10 @@ type Config struct {
 
 // Diamond 提供了操作阿里云ACM的能力
 type Diamond struct {
-	option       Option
-	c            *cast.Cast
-	units        []Unit
-	longPullHook Hook
+	option  Option
+	c       *cast.Cast
+	units   []Unit
+	errHook Hook
 }
 
 // New 产生Diamond实例
@@ -103,12 +102,7 @@ func (d *Diamond) Add(unit Unit) {
 	go func() {
 		for {
 			newContentMD5, err := d.LongPull(unit, contentMD5)
-			if err != nil {
-				if d.longPullHook != nil {
-					d.longPullHook(unit, err)
-				}
-				log.Println("LongPullErr: ", err.Error())
-			}
+			d.checkErr(unit, err)
 			if contentMD5 == "" &&
 				newContentMD5 != "" && unit.FetchOnce {
 				return
@@ -122,6 +116,9 @@ func (d *Diamond) Add(unit Unit) {
 		for {
 			select {
 			case config := <-unit.ch:
+				var err error
+				config.Content, err = GbkToUtf8(config.Content)
+				d.checkErr(unit, err)
 				unit.OnChange(config)
 				if unit.FetchOnce {
 					return
@@ -131,7 +128,17 @@ func (d *Diamond) Add(unit Unit) {
 	}()
 }
 
-// SetHook 用于提醒当长轮询发生错误的状况
+// SetHook 用于提醒关键错误
 func (d *Diamond) SetHook(h Hook) {
-	d.longPullHook = h
+	d.errHook = h
+}
+
+func (d *Diamond) checkErr(unit Unit, err error) {
+	if err == nil {
+		return
+	}
+	if d.errHook == nil {
+		return
+	}
+	d.errHook(unit, err)
 }
