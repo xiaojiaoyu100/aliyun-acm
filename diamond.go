@@ -76,12 +76,7 @@ func New(addr, tenant, accessKey, secretKey string) (*Diamond, error) {
 		secretKey: secretKey,
 	}
 	c, err := cast.New(
-		cast.WithRetry(2),
 		cast.WithHTTPClientTimeout(60*time.Second),
-		cast.WithExponentialBackoffDecorrelatedJitterStrategy(
-			time.Millisecond*200,
-			time.Millisecond*500,
-		),
 		cast.WithLogLevel(logrus.WarnLevel),
 	)
 	if err != nil {
