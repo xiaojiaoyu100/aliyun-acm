@@ -42,9 +42,18 @@ func (d *Diamond) LongPull(unit Unit, contentMD5 string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
+	switch response.StatusCode() {
+	case http.StatusServiceUnavailable:
+		return "", serviceUnavailableErr
+	case http.StatusInternalServerError:
+		return "", internalServerErr
+	}
+
 	if !response.Success() {
 		return "", errors.New(response.String())
 	}
+
 	ret := url.QueryEscape(strings.Join([]string{unit.DataID, unit.Group, d.option.tenant}, wordSeparator) + lineSeparator)
 	if contentMD5 == "" ||
 		ret == strings.TrimSpace(response.String()) {
