@@ -76,7 +76,12 @@ func New(addr, tenant, accessKey, secretKey string) (*Diamond, error) {
 		secretKey: secretKey,
 	}
 	c, err := cast.New(
+		cast.WithRetry(2),
 		cast.WithHTTPClientTimeout(60*time.Second),
+		cast.WithExponentialBackoffDecorrelatedJitterStrategy(
+			time.Millisecond*200,
+			time.Millisecond*500,
+		),
 		cast.WithLogLevel(logrus.WarnLevel),
 	)
 	if err != nil {
@@ -109,7 +114,10 @@ func (d *Diamond) Add(unit Unit) {
 				newContentMD5 != "" && unit.FetchOnce {
 				return
 			}
-			contentMD5 = newContentMD5
+			// 防止网络较差情景下MD5被重置，重新请求配置，造成阿里云限流
+			if newContentMD5 != "" {
+				contentMD5 = newContentMD5
+			}
 			time.Sleep(time.Second)
 		}
 	}()
