@@ -13,7 +13,7 @@ const (
 	acmDeleteConfig  URL = "/diamond-server/datum.do?method=deleteAllDatums"
 	acmPublishConfig URL = "/diamond-server/basestone.do?method=syncUpdateAll"
 	acmAllConfig     URL = "/diamond-server/basestone.do?method=getAllConfigByTenant"
-	acmLongPoll      URL = "/diamond-server/config.co"
+	acmLongPull      URL = "/diamond-server/config.co"
 )
 
 func (u URL) String(addr string) string {

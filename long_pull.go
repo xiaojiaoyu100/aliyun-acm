@@ -14,6 +14,7 @@ const (
 
 // LongPull 监听配置
 func (d *Diamond) LongPull(unit Unit, contentMD5 string) (string, error) {
+	d.longPullRateLimiter.Take()
 	ip, err := d.QueryIP()
 	if err != nil {
 		return "", err
@@ -33,7 +34,7 @@ func (d *Diamond) LongPull(unit Unit, contentMD5 string) (string, error) {
 	}
 	longPollRequest.ProbeModifyRequest = strings.Join([]string{unit.DataID, unit.Group, contentMD5, d.option.tenant}, wordSeparator) + lineSeparator
 	request := d.c.NewRequest().
-		WithPath(acmLongPoll.String(ip)).
+		WithPath(acmLongPull.String(ip)).
 		WithFormURLEncodedBody(longPollRequest).
 		WithHeader(header).
 		Post()

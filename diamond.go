@@ -4,6 +4,8 @@ import (
 	"math/rand"
 	"time"
 
+	"go.uber.org/ratelimit"
+
 	"github.com/sirupsen/logrus"
 
 	"github.com/xiaojiaoyu100/cast"
@@ -60,15 +62,17 @@ type Config struct {
 
 // Diamond 提供了操作阿里云ACM的能力
 type Diamond struct {
-	option  Option
-	c       *cast.Cast
-	units   []Unit
-	errHook Hook
-	r       *rand.Rand
+	option              Option
+	c                   *cast.Cast
+	units               []Unit
+	errHook             Hook
+	r                   *rand.Rand
+	longPullRate        int
+	longPullRateLimiter ratelimit.Limiter
 }
 
 // New 产生Diamond实例
-func New(addr, tenant, accessKey, secretKey string) (*Diamond, error) {
+func New(addr, tenant, accessKey, secretKey string, setters ...Setter) (*Diamond, error) {
 	option := Option{
 		addr:      addr,
 		tenant:    tenant,
@@ -87,15 +91,24 @@ func New(addr, tenant, accessKey, secretKey string) (*Diamond, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	s := rand.NewSource(time.Now().UnixNano())
 	r := rand.New(s)
 
 	d := &Diamond{
-		option: option,
-		c:      c,
-		r:      r,
+		option:       option,
+		c:            c,
+		r:            r,
+		longPullRate: 6,
 	}
+
+	for _, setter := range setters {
+		if err := setter(d); err != nil {
+			return nil, err
+		}
+	}
+
+	d.longPullRateLimiter = ratelimit.New(d.longPullRate)
+
 	return d, nil
 }
 
