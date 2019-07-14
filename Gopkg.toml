@@ -27,7 +27,7 @@
 
 [[constraint]]
   name = "github.com/xiaojiaoyu100/cast"
-  version = "v1.0.8"
+  version = "v1.2.3"
 
 [prune]
   unused-packages = true
