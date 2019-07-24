@@ -118,6 +118,7 @@ func (d *Diamond) Add(unit Unit) {
 	)
 	go func() {
 		for {
+			time.Sleep(time.Duration(randomIntInRange(20, 100)) * time.Millisecond)
 			newContentMD5, err := d.LongPull(unit, contentMD5)
 			d.checkErr(unit, err)
 			if contentMD5 == "" &&
@@ -128,7 +129,6 @@ func (d *Diamond) Add(unit Unit) {
 			if newContentMD5 != "" {
 				contentMD5 = newContentMD5
 			}
-			time.Sleep(time.Duration(randomIntInRange(20, 100)) * time.Millisecond)
 		}
 	}()
 
