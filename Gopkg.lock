@@ -39,17 +39,8 @@
 [[projects]]
   name = "github.com/xiaojiaoyu100/cast"
   packages = ["."]
-  revision = "9b2d9b934d63eb190975fdf9bc603d16b1ae7a5b"
-  version = "v1.2.3"
-
-[[projects]]
-  branch = "master"
-  name = "go.uber.org/ratelimit"
-  packages = [
-    ".",
-    "internal/clock"
-  ]
-  revision = "c15da02342779cb6dc027fc95ee2277787698f36"
+  revision = "c03cdc3473d98a516a0b9da5e4467dfed305c25e"
+  version = "v1.2.4"
 
 [[projects]]
   branch = "master"
@@ -74,6 +65,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "9f2ec9dc9563691987ba4e214df33faf2b923c4a90bbb945ff2ecb6e8cfd141e"
+  inputs-digest = "3d5e1c94928e8ef986c981e4aba3df17191e4b1ea06c2cdbe9e546e2cf9cdebe"
   solver-name = "gps-cdcl"
   solver-version = 1

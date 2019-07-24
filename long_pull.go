@@ -14,7 +14,6 @@ const (
 
 // LongPull 监听配置
 func (d *Diamond) LongPull(unit Unit, contentMD5 string) (string, error) {
-	d.longPullRateLimiter.Take()
 	ip, err := d.QueryIP()
 	if err != nil {
 		return "", err

@@ -4,8 +4,6 @@ import (
 	"math/rand"
 	"time"
 
-	"go.uber.org/ratelimit"
-
 	"github.com/sirupsen/logrus"
 
 	"github.com/xiaojiaoyu100/cast"
@@ -67,8 +65,6 @@ type Diamond struct {
 	units               []Unit
 	errHook             Hook
 	r                   *rand.Rand
-	longPullRate        int
-	longPullRateLimiter ratelimit.Limiter
 }
 
 // New 产生Diamond实例
@@ -98,7 +94,6 @@ func New(addr, tenant, accessKey, secretKey string, setters ...Setter) (*Diamond
 		option:       option,
 		c:            c,
 		r:            r,
-		longPullRate: 6,
 	}
 
 	for _, setter := range setters {
@@ -107,9 +102,11 @@ func New(addr, tenant, accessKey, secretKey string, setters ...Setter) (*Diamond
 		}
 	}
 
-	d.longPullRateLimiter = ratelimit.New(d.longPullRate)
-
 	return d, nil
+}
+
+func randomIntInRange(min, max int) int {
+	return rand.Intn(max-min) + min
 }
 
 // Add 添加想要关心的配置单元
@@ -131,7 +128,7 @@ func (d *Diamond) Add(unit Unit) {
 			if newContentMD5 != "" {
 				contentMD5 = newContentMD5
 			}
-			time.Sleep(time.Second)
+			time.Sleep(time.Duration(randomIntInRange(20, 100)) * time.Millisecond)
 		}
 	}()
 
