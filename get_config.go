@@ -28,9 +28,6 @@ func (d *Diamond) GetConfig(args *GetConfigRequest) ([]byte, error) {
 	if err := d.withUsual(args.Tenant, args.Group)(header); err != nil {
 		return nil, err
 	}
-	if err != nil {
-		return nil, err
-	}
 	request := d.c.NewRequest().
 		WithTimeout(apiTimeout).
 		WithPath(acmConfig.String(ip)).
