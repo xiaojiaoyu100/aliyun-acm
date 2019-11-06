@@ -41,7 +41,7 @@ type Unit struct {
 	Group     string
 	DataID    string
 	FetchOnce bool
-	OnChange  Handler
+	CoList    []ConcreteObserver
 	ch        chan Config
 }
 
@@ -60,11 +60,12 @@ type Config struct {
 
 // Diamond 提供了操作阿里云ACM的能力
 type Diamond struct {
-	option              Option
-	c                   *cast.Cast
-	units               []Unit
-	errHook             Hook
-	r                   *rand.Rand
+	option  Option
+	c       *cast.Cast
+	units   []Unit
+	errHook Hook
+	r       *rand.Rand
+	obs     *observer
 }
 
 // New 产生Diamond实例
@@ -91,9 +92,10 @@ func New(addr, tenant, accessKey, secretKey string, setters ...Setter) (*Diamond
 	r := rand.New(s)
 
 	d := &Diamond{
-		option:       option,
-		c:            c,
-		r:            r,
+		option: option,
+		c:      c,
+		r:      r,
+		obs:    Observer(),
 	}
 
 	for _, setter := range setters {
@@ -110,9 +112,14 @@ func randomIntInRange(min, max int) int {
 }
 
 // Add 添加想要关心的配置单元
-func (d *Diamond) Add(unit Unit) {
+func (d *Diamond) Add(unit Unit) error {
 	unit.ch = make(chan Config)
 	d.units = append(d.units, unit)
+	for _, co := range unit.CoList {
+		if err := d.obs.Register(unit.Group, unit.DataID, co); err != nil {
+			return err
+		}
+	}
 	var (
 		contentMD5 string
 	)
@@ -139,13 +146,14 @@ func (d *Diamond) Add(unit Unit) {
 				var err error
 				config.Content, err = GbkToUtf8(config.Content)
 				d.checkErr(unit, err)
-				unit.OnChange(config)
+				d.obs.Modify(unit, config)
 				if unit.FetchOnce {
 					return
 				}
 			}
 		}
 	}()
+	return nil
 }
 
 // SetHook 用于提醒关键错误
