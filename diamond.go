@@ -2,10 +2,12 @@ package aliacm
 
 import (
 	"math/rand"
+	"reflect"
 	"time"
 
-	"github.com/sirupsen/logrus"
+	"errors"
 
+	"github.com/sirupsen/logrus"
 	"github.com/xiaojiaoyu100/cast"
 )
 
@@ -41,7 +43,7 @@ type Unit struct {
 	Group     string
 	DataID    string
 	FetchOnce bool
-	CoList    []ConcreteObserver
+	Coll      []Observer
 	ch        chan Config
 }
 
@@ -65,7 +67,7 @@ type Diamond struct {
 	units   []Unit
 	errHook Hook
 	r       *rand.Rand
-	obs     *observer
+	coll    map[info][]Observer
 }
 
 // New 产生Diamond实例
@@ -95,7 +97,7 @@ func New(addr, tenant, accessKey, secretKey string, setters ...Setter) (*Diamond
 		option: option,
 		c:      c,
 		r:      r,
-		obs:    Observer(),
+		coll:   make(map[info][]Observer),
 	}
 
 	for _, setter := range setters {
@@ -111,12 +113,34 @@ func randomIntInRange(min, max int) int {
 	return rand.Intn(max-min) + min
 }
 
+func (d *Diamond) register(i info, o Observer) error {
+	if reflect.TypeOf(o).Kind() != reflect.Ptr {
+		return errors.New("type error")
+	}
+	d.coll[i] = append(d.coll[i], o)
+	return nil
+}
+
+func (d *Diamond) notify(unit Unit, config Config) {
+	i := info{
+		Group:  unit.Group,
+		DataID: unit.DataID,
+	}
+	for _, o := range d.coll[i] {
+		o.Modify(unit, config)
+	}
+}
+
 // Add 添加想要关心的配置单元
 func (d *Diamond) Add(unit Unit) error {
 	unit.ch = make(chan Config)
 	d.units = append(d.units, unit)
-	for _, co := range unit.CoList {
-		if err := d.obs.Register(unit.Group, unit.DataID, co); err != nil {
+	for _, o := range unit.Coll {
+		i := info{
+			Group:  unit.Group,
+			DataID: unit.DataID,
+		}
+		if err := d.register(i, o); err != nil {
 			return err
 		}
 	}
@@ -146,7 +170,7 @@ func (d *Diamond) Add(unit Unit) error {
 				var err error
 				config.Content, err = GbkToUtf8(config.Content)
 				d.checkErr(unit, err)
-				d.obs.Modify(unit, config)
+				d.notify(unit, config)
 				if unit.FetchOnce {
 					return
 				}

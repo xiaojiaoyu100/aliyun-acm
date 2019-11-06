@@ -18,7 +18,7 @@ const (
 func ShouldIgnore(err error) bool {
 	if err == serviceUnavailableErr ||
 		err == internalServerErr ||
-		err  == context.Canceled {
+		err == context.Canceled {
 		return true
 	}
 	return false
