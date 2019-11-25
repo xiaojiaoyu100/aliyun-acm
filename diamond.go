@@ -2,10 +2,7 @@ package aliacm
 
 import (
 	"math/rand"
-	"reflect"
 	"time"
-
-	"errors"
 
 	"github.com/sirupsen/logrus"
 	"github.com/xiaojiaoyu100/cast"
@@ -43,8 +40,12 @@ type Unit struct {
 	Group     string
 	DataID    string
 	FetchOnce bool
-	Coll      []Observer
 	ch        chan Config
+}
+
+// IsEqual 根据Group，DataID判断unit是否相等
+func (u *Unit) IsEqual(unit Unit) bool {
+	return u.Group == unit.Group && u.DataID == unit.DataID
 }
 
 // Option 参数设置
@@ -57,6 +58,7 @@ type Option struct {
 
 // Config 返回配置
 type Config struct {
+	Info
 	Content []byte
 }
 
@@ -67,7 +69,7 @@ type Diamond struct {
 	units   []Unit
 	errHook Hook
 	r       *rand.Rand
-	coll    map[info][]Observer
+	coll    map[Info][]Observer
 }
 
 // New 产生Diamond实例
@@ -97,7 +99,7 @@ func New(addr, tenant, accessKey, secretKey string, setters ...Setter) (*Diamond
 		option: option,
 		c:      c,
 		r:      r,
-		coll:   make(map[info][]Observer),
+		coll:   make(map[Info][]Observer),
 	}
 
 	for _, setter := range setters {
@@ -113,37 +115,41 @@ func randomIntInRange(min, max int) int {
 	return rand.Intn(max-min) + min
 }
 
-func (d *Diamond) register(i info, o Observer) error {
-	if reflect.TypeOf(o).Kind() != reflect.Ptr {
-		return errors.New("type error")
-	}
+func (d *Diamond) register(i Info, o Observer) {
 	d.coll[i] = append(d.coll[i], o)
-	return nil
 }
 
-func (d *Diamond) notify(unit Unit, config Config) {
-	i := info{
-		Group:  unit.Group,
-		DataID: unit.DataID,
+func (d *Diamond) notify(config Config) {
+	i := Info{
+		Group:  config.Group,
+		DataID: config.DataID,
 	}
+
 	for _, o := range d.coll[i] {
-		o.Modify(unit, config)
+		o.OnUpdate(config)
 	}
 }
 
-// Add 添加想要关心的配置单元
-func (d *Diamond) Add(unit Unit) error {
+// AddObservers 批量添加Observer
+func (d *Diamond) AddObservers(obs ...Observer) {
+	for _, ob := range obs {
+		infos := ob.Infos()
+		for _, info := range infos {
+			d.register(info, ob)
+		}
+	}
+}
+
+// AddUnit 添加想要关心的配置单元
+func (d *Diamond) AddUnit(unit Unit) error {
+	for _, u := range d.units {
+		if u.IsEqual(unit) {
+			return nil
+		}
+	}
+
 	unit.ch = make(chan Config)
 	d.units = append(d.units, unit)
-	for _, o := range unit.Coll {
-		i := info{
-			Group:  unit.Group,
-			DataID: unit.DataID,
-		}
-		if err := d.register(i, o); err != nil {
-			return err
-		}
-	}
 	var (
 		contentMD5 string
 	)
@@ -170,7 +176,7 @@ func (d *Diamond) Add(unit Unit) error {
 				var err error
 				config.Content, err = GbkToUtf8(config.Content)
 				d.checkErr(unit, err)
-				d.notify(unit, config)
+				d.notify(config)
 				if unit.FetchOnce {
 					return
 				}

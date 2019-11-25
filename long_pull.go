@@ -32,6 +32,8 @@ func (d *Diamond) LongPull(unit Unit, contentMD5 string) (string, error) {
 		config := Config{
 			Content: content,
 		}
+		config.Group = unit.Group
+		config.DataID = unit.DataID
 		unit.ch <- config
 		return contentMD5, nil
 	default:
@@ -81,6 +83,8 @@ func (d *Diamond) LongPull(unit Unit, contentMD5 string) (string, error) {
 			config := Config{
 				Content: content,
 			}
+			config.Group = unit.Group
+			config.DataID = unit.DataID
 			unit.ch <- config
 			return contentMD5, nil
 		}
