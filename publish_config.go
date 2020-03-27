@@ -1,6 +1,7 @@
 package aliacm
 
 import (
+	"context"
 	"errors"
 	"net/http"
 )
@@ -32,7 +33,7 @@ func (d *Diamond) PublishConfig(args *PublishConfigRequest) error {
 		WithFormURLEncodedBody(args).
 		WithHeader(header).
 		Post()
-	response, err := d.c.Do(request)
+	response, err := d.c.Do(context.TODO(), request)
 	if err != nil {
 		return err
 	}

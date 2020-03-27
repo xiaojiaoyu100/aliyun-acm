@@ -1,6 +1,7 @@
 package aliacm
 
 import (
+	"context"
 	"errors"
 	"strings"
 )
@@ -11,7 +12,7 @@ func (d *Diamond) QueryIP() (string, error) {
 		WithTimeout(apiTimeout).
 		WithPath(acmIP.String(d.option.addr)).
 		Get()
-	response, err := d.c.Do(request)
+	response, err := d.c.Do(context.TODO(), request)
 	if err != nil {
 		return "", err
 	}

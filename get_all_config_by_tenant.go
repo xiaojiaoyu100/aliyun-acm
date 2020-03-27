@@ -1,6 +1,7 @@
 package aliacm
 
 import (
+	"context"
 	"errors"
 	"net/http"
 )
@@ -43,7 +44,7 @@ func (d *Diamond) GetAllConfigByTenant(args *GetAllConfigByTenantRequest) (*GetA
 		WithQueryParam(args).
 		WithHeader(header).
 		Get()
-	response, err := d.c.Do(request)
+	response, err := d.c.Do(context.TODO(), request)
 	if err != nil {
 		return nil, err
 	}

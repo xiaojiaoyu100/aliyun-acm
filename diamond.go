@@ -60,11 +60,11 @@ type Config struct {
 
 // Diamond 提供了操作阿里云ACM的能力
 type Diamond struct {
-	option              Option
-	c                   *cast.Cast
-	units               []Unit
-	errHook             Hook
-	r                   *rand.Rand
+	option  Option
+	c       *cast.Cast
+	units   []Unit
+	errHook Hook
+	r       *rand.Rand
 }
 
 // New 产生Diamond实例
@@ -91,9 +91,9 @@ func New(addr, tenant, accessKey, secretKey string, setters ...Setter) (*Diamond
 	r := rand.New(s)
 
 	d := &Diamond{
-		option:       option,
-		c:            c,
-		r:            r,
+		option: option,
+		c:      c,
+		r:      r,
 	}
 
 	for _, setter := range setters {

@@ -1,6 +1,7 @@
 package aliacm
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"net/url"
@@ -54,7 +55,7 @@ func (d *Diamond) LongPull(unit Unit, contentMD5 string) (string, error) {
 			WithFormURLEncodedBody(longPollRequest).
 			WithHeader(header).
 			Post()
-		response, err := d.c.Do(request)
+		response, err := d.c.Do(context.TODO(), request)
 		if err != nil {
 			return "", err
 		}
@@ -68,7 +69,7 @@ func (d *Diamond) LongPull(unit Unit, contentMD5 string) (string, error) {
 			return "", errors.New(response.String())
 		}
 		ret := url.QueryEscape(strings.Join([]string{unit.DataID, unit.Group, d.option.tenant}, wordSeparator) + lineSeparator)
-		if  ret == strings.TrimSpace(response.String()) {
+		if ret == strings.TrimSpace(response.String()) {
 			args := new(GetConfigRequest)
 			args.Tenant = d.option.tenant
 			args.Group = unit.Group
