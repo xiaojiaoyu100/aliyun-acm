@@ -1,6 +1,10 @@
 package aliacm
 
 import (
+	"github.com/xiaojiaoyu100/aliyun-acm/v2/config"
+	"github.com/xiaojiaoyu100/aliyun-acm/v2/info"
+	"github.com/xiaojiaoyu100/aliyun-acm/v2/observer"
+	"github.com/xiaojiaoyu100/curlew"
 	"math/rand"
 	"time"
 
@@ -38,11 +42,9 @@ const (
 
 // Unit 配置基本单位
 type Unit struct {
+	Config
 	Group     string
 	DataID    string
-	FetchOnce bool
-	OnChange  Handler
-	ch        chan Config
 }
 
 // Option 参数设置
@@ -53,18 +55,17 @@ type Option struct {
 	secretKey string
 }
 
-// Config 返回配置
-type Config struct {
-	Content []byte
-}
+
 
 // Diamond 提供了操作阿里云ACM的能力
 type Diamond struct {
 	option  Option
 	c       *cast.Cast
-	units   []Unit
 	errHook Hook
 	r       *rand.Rand
+	oo []*observer.Observer
+	all map[info.Info]*config.Config
+	c curlew.Worker
 }
 
 // New 产生Diamond实例
@@ -94,6 +95,7 @@ func New(addr, tenant, accessKey, secretKey string, setters ...Setter) (*Diamond
 		option: option,
 		c:      c,
 		r:      r,
+		all: make(map[info.Info]*config.Config),
 	}
 
 	for _, setter := range setters {
@@ -109,40 +111,53 @@ func randomIntInRange(min, max int) int {
 	return rand.Intn(max-min) + min
 }
 
-// Add 添加想要关心的配置单元
-func (d *Diamond) Add(unit Unit) {
-	unit.ch = make(chan Config)
-	d.units = append(d.units, unit)
-	var (
-		contentMD5 string
-	)
+func (d *Diamond) Register(oo ...*observer.Observer) {
+	d.oo = append(d.oo, oo...)
+	for _, o := range oo {
+		for _, i := range o.Info() {
+			d.all[i] = nil
+		}
+	}
+	for i, _ :=  range d.all {
+		req := &GetConfigRequest{
+			Tenant: d.option.tenant,
+			Group: i.Group,
+			DataID: i.DataID,
+		}
+		b, err := d.GetConfig(req)
+		d.hang(i)
+		if err != nil {
+			continue
+		}
+		d.all[i] = &config.Config{
+			Content: b,
+			ContentMD5: Md5(string(b)),
+			Pulled: true,
+		}
+	}
+	d.trigger()
+}
+
+func (d *Diamond) trigger() {
+	for _, o :=  range d.oo {
+		if o.Ready() {
+			o.Handle()
+		}
+	}
+}
+
+func (d *Diamond) hang(i info.Info) {
 	go func() {
 		for {
 			time.Sleep(time.Duration(randomIntInRange(20, 100)) * time.Millisecond)
-			newContentMD5, err := d.LongPull(unit, contentMD5)
-			d.checkErr(unit, err)
-			if contentMD5 == "" &&
-				newContentMD5 != "" && unit.FetchOnce {
-				return
-			}
+			content, newContentMD5, err := d.LongPull(i, d.all[i].ContentMD5)
+			d.checkErr(i, err)
 			// 防止网络较差情景下MD5被重置，重新请求配置，造成阿里云限流
 			if newContentMD5 != "" {
-				contentMD5 = newContentMD5
-			}
-		}
-	}()
-
-	go func() {
-		for {
-			select {
-			case config := <-unit.ch:
-				var err error
-				config.Content, err = GbkToUtf8(config.Content)
-				d.checkErr(unit, err)
-				unit.OnChange(config)
-				if unit.FetchOnce {
-					return
-				}
+				d.all[i].Content = content
+				d.all[i].ContentMD5 = newContentMD5
+				d.all[i].Pulled = true
+				d.trigger()
 			}
 		}
 	}()
@@ -153,12 +168,12 @@ func (d *Diamond) SetHook(h Hook) {
 	d.errHook = h
 }
 
-func (d *Diamond) checkErr(unit Unit, err error) {
+func (d *Diamond) checkErr(i info.Info, err error) {
 	if err == nil {
 		return
 	}
 	if d.errHook == nil {
 		return
 	}
-	d.errHook(unit, err)
+	d.errHook(i, err)
 }
