@@ -6,8 +6,9 @@ import (
 )
 
 type Observer struct {
-	coll map[info.Info]*config.Config
-	h Handler
+	coll     map[info.Info]*config.Config
+	h        Handler
+	consumed bool
 }
 
 func New(ss ...Setting) (*Observer, error) {
@@ -34,13 +35,21 @@ func (o *Observer) Ready() bool {
 
 func (o *Observer) Info() []info.Info {
 	var ii []info.Info
-	for i, _ := range o.coll {
+	for i := range o.coll {
 		ii = append(ii, i)
 	}
 	return ii
 }
 
 func (o *Observer) Handle() {
+	if o.consumed {
+		return
+	}
+	o.consumed = true
 	o.h(o.coll)
 }
 
+func (o *Observer) UpdateInfo(i info.Info, conf *config.Config) {
+	o.consumed = false
+	o.coll[i] = conf
+}

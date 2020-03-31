@@ -1,6 +1,6 @@
 package info
 
 type Info struct {
-	Group string
+	Group  string
 	DataID string
 }

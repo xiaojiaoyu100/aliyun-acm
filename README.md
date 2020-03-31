@@ -9,34 +9,54 @@ package main
 
 import (
 	"fmt"
-	"github.com/xiaojiaoyu100/aliyun-acm"
+	aliacm "github.com/xiaojiaoyu100/aliyun-acm/v2"
+	"github.com/xiaojiaoyu100/aliyun-acm/v2/config"
+	"github.com/xiaojiaoyu100/aliyun-acm/v2/info"
+	"github.com/xiaojiaoyu100/aliyun-acm/v2/observer"
 )
 
-
-func Handle(config aliacm.Config)  {
-	fmt.Println(string(config.Content))
+func handle(coll map[info.Info]*config.Config) {
+	for _, o := range coll {
+		fmt.Println(string(o.Content))
+	}
 }
 
 func main() {
 	d, err := aliacm.New(
-		"your_addr",
-		"your_tenant",
-		"your_access_key",
-		"your_secret_key")
+		addr,
+		tenant,
+		accessKey,
+		secretKey)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	o1, err := observer.New(
+		observer.WithInfo(
+			info.Info{Group: "YourGroup", DataID: "YourDataID"},
+			),
+		observer.WithHandler(handle))
 	if err != nil {
 		return
 	}
-	var f = func(h aliacm.Unit, err error) {
+	o2, err := observer.New(
+		observer.WithInfo(
+			info.Info{Group: "YourGroup", DataID: "YourDataID"},
+			info.Info{Group: "YourAnotherGroup", DataID: "YourAnotherDataID"},
+			),
+		observer.WithHandler(handle))
+	if err != nil {
+		return
+	}
+
+	var f = func(h info.Info, err error) {
 		fmt.Println(err)
 	}
 	d.SetHook(f)
-	unit := aliacm.Unit{
-		Group: "your_group",
-		DataID: "your_data_id",
-		FetchOnce: true, // 有且仅拉取一次
-		OnChange: Handle,
-	}
-	d.Add(unit)
+
+	d.Register(o1, o2)
+
 	select{}
 }
 ```

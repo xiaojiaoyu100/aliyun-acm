@@ -56,12 +56,6 @@ func (d *Diamond) LongPull(info info.Info, contentMD5 string) ([]byte, string, e
 		if err != nil {
 			return nil, "", err
 		}
-		switch response.StatusCode() {
-		case http.StatusServiceUnavailable:
-			return nil, "", serviceUnavailableErr
-		case http.StatusInternalServerError:
-			return nil, "", internalServerErr
-		}
 		if !response.Success() {
 			return nil, "", errors.New(response.String())
 		}
@@ -78,6 +72,6 @@ func (d *Diamond) LongPull(info info.Info, contentMD5 string) ([]byte, string, e
 			contentMD5 := Md5(string(content))
 			return content, contentMD5, nil
 		}
-		return nil, "", errors.New("long pull unexpected error")
+		return nil, "", noChangeErr
 	}
 }

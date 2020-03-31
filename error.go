@@ -1,6 +1,8 @@
 package aliacm
 
-import "context"
+import (
+	"errors"
+)
 
 // Error ACM错误
 type Error string
@@ -10,15 +12,13 @@ func (e Error) Error() string {
 }
 
 const (
-	serviceUnavailableErr = Error("ServiceUnavailable")
-	internalServerErr     = Error("InternalServerError")
+	noChangeErr = Error("NoChangeError")
 )
 
 // ShouldIgnore 忽略一些不想关心的错误
-func ShouldIgnore(err error) bool {
-	if err == serviceUnavailableErr ||
-		err == internalServerErr ||
-		err == context.Canceled {
+func shouldIgnore(err error) bool {
+	if err == nil ||
+		errors.Is(err, noChangeErr) {
 		return true
 	}
 	return false

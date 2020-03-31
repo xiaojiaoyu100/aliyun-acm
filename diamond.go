@@ -1,6 +1,7 @@
 package aliacm
 
 import (
+	"fmt"
 	"github.com/xiaojiaoyu100/aliyun-acm/v2/config"
 	"github.com/xiaojiaoyu100/aliyun-acm/v2/info"
 	"github.com/xiaojiaoyu100/aliyun-acm/v2/observer"
@@ -8,8 +9,8 @@ import (
 	"math/rand"
 	"time"
 
+	"context"
 	"github.com/sirupsen/logrus"
-
 	"github.com/xiaojiaoyu100/cast"
 )
 
@@ -40,13 +41,6 @@ const (
 	ShanghaiFinance1Addr = "addr-cn-shanghai-finance-1-internal.edas.aliyun.com"
 )
 
-// Unit 配置基本单位
-type Unit struct {
-	Config
-	Group     string
-	DataID    string
-}
-
 // Option 参数设置
 type Option struct {
 	addr      string
@@ -55,17 +49,16 @@ type Option struct {
 	secretKey string
 }
 
-
-
 // Diamond 提供了操作阿里云ACM的能力
 type Diamond struct {
-	option  Option
-	c       *cast.Cast
-	errHook Hook
-	r       *rand.Rand
-	oo []*observer.Observer
-	all map[info.Info]*config.Config
-	c curlew.Worker
+	option     Option
+	c          *cast.Cast
+	errHook    Hook
+	r          *rand.Rand
+	oo         []*observer.Observer
+	filter     map[*observer.Observer]struct{}
+	all        map[info.Info]*config.Config
+	dispatcher *curlew.Dispatcher
 }
 
 // New 产生Diamond实例
@@ -91,11 +84,24 @@ func New(addr, tenant, accessKey, secretKey string, setters ...Setter) (*Diamond
 	s := rand.NewSource(time.Now().UnixNano())
 	r := rand.New(s)
 
+	var monitor = func(err error) {
+
+	}
+
+	dispatcher, err := curlew.New(
+		curlew.WithMaxWorkerNum(100),
+		curlew.WithMonitor(monitor))
+	if err != nil {
+		return nil, err
+	}
+
 	d := &Diamond{
-		option: option,
-		c:      c,
-		r:      r,
-		all: make(map[info.Info]*config.Config),
+		option:     option,
+		c:          c,
+		r:          r,
+		filter:     make(map[*observer.Observer]struct{}),
+		all:        make(map[info.Info]*config.Config),
+		dispatcher: dispatcher,
 	}
 
 	for _, setter := range setters {
@@ -111,37 +117,59 @@ func randomIntInRange(min, max int) int {
 	return rand.Intn(max-min) + min
 }
 
-func (d *Diamond) Register(oo ...*observer.Observer) {
-	d.oo = append(d.oo, oo...)
+// Register registers an observer list.
+func (d *Diamond) Register(oo ...*observer.Observer) int64 {
+	start := time.Now()
+	for _, o := range oo {
+		_, ok := d.filter[o]
+		if ok {
+			continue
+		}
+		d.filter[o] = struct{}{}
+		d.oo = append(d.oo, o)
+	}
 	for _, o := range oo {
 		for _, i := range o.Info() {
-			d.all[i] = nil
+			d.all[i] = &config.Config{}
 		}
 	}
-	for i, _ :=  range d.all {
+	for i := range d.all {
 		req := &GetConfigRequest{
 			Tenant: d.option.tenant,
-			Group: i.Group,
+			Group:  i.Group,
 			DataID: i.DataID,
 		}
 		b, err := d.GetConfig(req)
 		d.hang(i)
 		if err != nil {
+			d.checkErr(i, err)
 			continue
 		}
-		d.all[i] = &config.Config{
-			Content: b,
+		conf := &config.Config{
+			Content:    b,
 			ContentMD5: Md5(string(b)),
-			Pulled: true,
+			Pulled:     true,
+		}
+		d.all[i] = conf
+		for _, o := range d.oo {
+			o.UpdateInfo(i, conf)
 		}
 	}
-	d.trigger()
+	d.notify()
+	return time.Now().Sub(start).Milliseconds()
 }
 
-func (d *Diamond) trigger() {
-	for _, o :=  range d.oo {
+func (d *Diamond) notify() {
+	for _, o := range d.oo {
 		if o.Ready() {
-			o.Handle()
+			j := curlew.NewJob()
+			j.Arg = o
+			j.Fn = func(ctx context.Context, arg interface{}) error {
+				o := arg.(*observer.Observer)
+				o.Handle()
+				return nil
+			}
+			d.dispatcher.Submit(j)
 		}
 	}
 }
@@ -149,16 +177,26 @@ func (d *Diamond) trigger() {
 func (d *Diamond) hang(i info.Info) {
 	go func() {
 		for {
+			// 防止网络差的时候没挂住
 			time.Sleep(time.Duration(randomIntInRange(20, 100)) * time.Millisecond)
+
 			content, newContentMD5, err := d.LongPull(i, d.all[i].ContentMD5)
 			d.checkErr(i, err)
-			// 防止网络较差情景下MD5被重置，重新请求配置，造成阿里云限流
-			if newContentMD5 != "" {
-				d.all[i].Content = content
-				d.all[i].ContentMD5 = newContentMD5
-				d.all[i].Pulled = true
-				d.trigger()
+
+			// 防止MD5被重置，重新请求
+			if newContentMD5 == "" {
+				continue
 			}
+			conf := &config.Config{
+				Content:    content,
+				ContentMD5: newContentMD5,
+				Pulled:     true,
+			}
+			d.all[i] = conf
+			for _, o := range d.oo {
+				o.UpdateInfo(i, conf)
+			}
+			d.notify()
 		}
 	}()
 }
@@ -169,11 +207,22 @@ func (d *Diamond) SetHook(h Hook) {
 }
 
 func (d *Diamond) checkErr(i info.Info, err error) {
-	if err == nil {
+	if shouldIgnore(err) {
 		return
 	}
 	if d.errHook == nil {
 		return
 	}
 	d.errHook(i, err)
+}
+
+// LoadingProgress shows the current load progress roughly.
+func (d *Diamond) LoadingProgress() string {
+	var ret = 0
+	for _, conf := range d.all {
+		if conf.Pulled {
+			ret++
+		}
+	}
+	return fmt.Sprintf("%d/%d", ret, len(d.all))
 }
