@@ -7,11 +7,11 @@ import (
 	"time"
 )
 
-const ip = "ip"
+const ipKey = "ip"
 
 // QueryIP 查询配置
 func (d *Diamond) QueryIP() (string, error) {
-	itf, _ := d.cache.Get(ip)
+	itf, _ := d.cache.Get(ipKey)
 	ip, ok := itf.(string)
 	if ok && len(ip) > 0 {
 		return ip, nil
@@ -31,7 +31,7 @@ func (d *Diamond) QueryIP() (string, error) {
 	ips := strings.Split(strings.TrimSpace(response.String()), "\n")
 	if len(ips) > 0 {
 		idx := d.r.Intn(len(ips))
-		_ = d.cache.Set(ip, ips[idx], time.Second*60)
+		_ = d.cache.Set(ipKey, ips[idx], time.Second*60)
 		return ips[idx], nil
 	}
 	return "", nil
