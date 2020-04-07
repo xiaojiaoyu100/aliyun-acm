@@ -6,6 +6,7 @@ import (
 	"github.com/xiaojiaoyu100/aliyun-acm/v2/info"
 	"github.com/xiaojiaoyu100/aliyun-acm/v2/observer"
 	"github.com/xiaojiaoyu100/curlew"
+	"github.com/xiaojiaoyu100/roc"
 	"math/rand"
 	"time"
 
@@ -59,6 +60,7 @@ type Diamond struct {
 	filter     map[*observer.Observer]struct{}
 	all        map[info.Info]*config.Config
 	dispatcher *curlew.Dispatcher
+	cache      *roc.Cache
 }
 
 // New 产生Diamond实例
@@ -95,6 +97,11 @@ func New(addr, tenant, accessKey, secretKey string, setters ...Setter) (*Diamond
 		return nil, err
 	}
 
+	cache, err := roc.New()
+	if err != nil {
+		return nil, err
+	}
+
 	d := &Diamond{
 		option:     option,
 		c:          c,
@@ -102,6 +109,7 @@ func New(addr, tenant, accessKey, secretKey string, setters ...Setter) (*Diamond
 		filter:     make(map[*observer.Observer]struct{}),
 		all:        make(map[info.Info]*config.Config),
 		dispatcher: dispatcher,
+		cache:      cache,
 	}
 
 	for _, setter := range setters {
