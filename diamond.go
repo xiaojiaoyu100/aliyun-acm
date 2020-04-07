@@ -141,7 +141,10 @@ func (d *Diamond) Register(oo ...*observer.Observer) int64 {
 			d.all[i] = &config.Config{}
 		}
 	}
-	for i := range d.all {
+	for i, conf := range d.all {
+		if conf != nil && conf.Pulled {
+			continue
+		}
 		req := &GetConfigRequest{
 			Tenant: d.option.tenant,
 			Group:  i.Group,
