@@ -16,9 +16,17 @@ import (
 )
 
 func handle(coll map[info.Info]*config.Config) {
-	for _, o := range coll {
-		fmt.Println(string(o.Content))
-	}
+    i := info.Info{DataID:"YourGroup", Group: "YourDataID"}
+	configI, ok := coll[i]
+    if !ok {
+        return 
+    }   
+    
+    a := info.Info{DataID:"YourAnotherGroup", Group:"YourAnotherDataID"}
+    configA, ok := coll[i]
+    if !ok {
+        return 
+    }   
 }
 
 func main() {
