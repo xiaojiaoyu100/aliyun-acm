@@ -56,7 +56,7 @@ type Diamond struct {
 	c          *cast.Cast
 	errHook    Hook
 	r          *rand.Rand
-	oo         []*observer.Observer
+	infoColl   map[info.Info][]*observer.Observer
 	filter     map[*observer.Observer]struct{}
 	all        map[info.Info]*config.Config
 	dispatcher *curlew.Dispatcher
@@ -106,6 +106,7 @@ func New(addr, tenant, accessKey, secretKey string, setters ...Setter) (*Diamond
 		option:     option,
 		c:          c,
 		r:          r,
+		infoColl:   make(map[info.Info][]*observer.Observer),
 		filter:     make(map[*observer.Observer]struct{}),
 		all:        make(map[info.Info]*config.Config),
 		dispatcher: dispatcher,
@@ -126,21 +127,23 @@ func randomIntInRange(min, max int) int {
 }
 
 // Register registers an observer list.
-func (d *Diamond) Register(oo ...*observer.Observer) int64 {
-	start := time.Now()
+func (d *Diamond) Register(oo ...*observer.Observer) {
 	for _, o := range oo {
 		_, ok := d.filter[o]
 		if ok {
 			continue
 		}
 		d.filter[o] = struct{}{}
-		d.oo = append(d.oo, o)
+		for _, in := range o.Info() {
+			d.infoColl[in] = append(d.infoColl[in], o)
+		}
 	}
 	for _, o := range oo {
 		for _, i := range o.Info() {
 			d.all[i] = &config.Config{}
 		}
 	}
+
 	for i, conf := range d.all {
 		if conf != nil && conf.Pulled {
 			continue
@@ -162,27 +165,23 @@ func (d *Diamond) Register(oo ...*observer.Observer) int64 {
 			Pulled:     true,
 		}
 		d.all[i] = conf
-		for _, o := range d.oo {
+		oo, ok := d.infoColl[i]
+		if !ok {
+			continue
+		}
+		for _, o := range oo {
 			o.UpdateInfo(i, conf)
 		}
 	}
-	return time.Now().Sub(start).Milliseconds()
 }
 
 // NotifyAll is called after Register.
 func (d *Diamond) NotifyAll() {
-	for _, o := range d.oo {
-		if o.Ready() {
-			j := curlew.NewJob()
-			j.Arg = o
-			j.Fn = func(ctx context.Context, arg interface{}) error {
-				o := arg.(*observer.Observer)
-				o.Handle()
-				return nil
-			}
-			d.dispatcher.Submit(j)
-		}
+	oo := make([]*observer.Observer, 0)
+	for o := range d.filter {
+		oo = append(oo, o)
 	}
+	d.notify(oo...)
 }
 
 func (d *Diamond) notify(oo ...*observer.Observer) {
@@ -219,14 +218,14 @@ func (d *Diamond) hang(i info.Info) {
 				Pulled:     true,
 			}
 			d.all[i] = conf
-			updates := make([]*observer.Observer, 0)
-			for _, o := range d.oo {
-				if !o.HotUpdateInfo(i, conf) {
-					continue
-				}
-				updates = append(updates, o)
+			oo, ok := d.infoColl[i]
+			if !ok {
+				continue
 			}
-			d.notify(updates...)
+			for _, o := range oo {
+				o.HotUpdateInfo(i, conf)
+			}
+			d.notify(oo...)
 		}
 	}()
 }
