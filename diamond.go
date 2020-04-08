@@ -166,11 +166,11 @@ func (d *Diamond) Register(oo ...*observer.Observer) int64 {
 			o.UpdateInfo(i, conf)
 		}
 	}
-	d.notify()
 	return time.Now().Sub(start).Milliseconds()
 }
 
-func (d *Diamond) notify() {
+// Notify is called after Register.
+func (d *Diamond) Notify() {
 	for _, o := range d.oo {
 		if o.Ready() {
 			j := curlew.NewJob()

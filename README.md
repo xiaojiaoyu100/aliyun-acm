@@ -64,6 +64,7 @@ func main() {
 	d.SetHook(f)
 
 	d.Register(o1, o2)
+        d.Notify()
 
 	select{}
 }
