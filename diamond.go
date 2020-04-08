@@ -148,33 +148,37 @@ func (d *Diamond) Register(oo ...*observer.Observer) {
 		}
 	}
 
-	for i, conf := range d.all {
-		if conf != nil && conf.Pulled {
-			continue
-		}
-		req := &GetConfigRequest{
-			Tenant: d.option.tenant,
-			Group:  i.Group,
-			DataID: i.DataID,
-		}
-		b, err := d.GetConfig(req)
-		d.hang(i)
-		if err != nil {
-			d.checkErr(i, err)
-			continue
-		}
-		conf := &config.Config{
-			Content:    b,
-			ContentMD5: Md5(string(b)),
-			Pulled:     true,
-		}
-		d.all[i] = conf
-		oo, ok := d.infoColl[i]
-		if !ok {
-			continue
-		}
-		for _, o := range oo {
-			o.UpdateInfo(i, conf)
+	for _, o := range oo {
+		for _, i := range o.Info() {
+			conf := d.all[i]
+			if conf != nil && conf.Pulled {
+				o.UpdateInfo(i, conf)
+				continue
+			}
+			req := &GetConfigRequest{
+				Tenant: d.option.tenant,
+				Group:  i.Group,
+				DataID: i.DataID,
+			}
+			b, err := d.GetConfig(req)
+			d.hang(i)
+			if err != nil {
+				d.checkErr(i, err)
+				continue
+			}
+			conf = &config.Config{
+				Content:    b,
+				ContentMD5: Md5(string(b)),
+				Pulled:     true,
+			}
+			d.all[i] = conf
+			oo, ok := d.infoColl[i]
+			if !ok {
+				continue
+			}
+			for _, o := range oo {
+				o.UpdateInfo(i, conf)
+			}
 		}
 	}
 }
