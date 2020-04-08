@@ -50,6 +50,5 @@ func (o *Observer) Handle() {
 }
 
 func (o *Observer) UpdateInfo(i info.Info, conf *config.Config) {
-	o.consumed = false
 	o.coll[i] = conf
 }
