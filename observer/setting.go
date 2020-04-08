@@ -5,6 +5,7 @@ import (
 	"github.com/xiaojiaoyu100/aliyun-acm/v2/info"
 )
 
+// Setting p配置
 type Setting func(o *Observer) error
 
 // WithInfo loads info.
