@@ -207,7 +207,7 @@ func (d *Diamond) hang(i info.Info) {
 			for _, o := range d.oo {
 				o.HotUpdateInfo(i, conf)
 			}
-			d.notify()
+			d.Notify()
 		}
 	}()
 }
