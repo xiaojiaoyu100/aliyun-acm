@@ -169,9 +169,24 @@ func (d *Diamond) Register(oo ...*observer.Observer) int64 {
 	return time.Now().Sub(start).Milliseconds()
 }
 
-// Notify is called after Register.
-func (d *Diamond) Notify() {
+// NotifyAll is called after Register.
+func (d *Diamond) NotifyAll() {
 	for _, o := range d.oo {
+		if o.Ready() {
+			j := curlew.NewJob()
+			j.Arg = o
+			j.Fn = func(ctx context.Context, arg interface{}) error {
+				o := arg.(*observer.Observer)
+				o.Handle()
+				return nil
+			}
+			d.dispatcher.Submit(j)
+		}
+	}
+}
+
+func (d *Diamond) notify(oo ...*observer.Observer) {
+	for _, o := range oo {
 		if o.Ready() {
 			j := curlew.NewJob()
 			j.Arg = o
@@ -204,10 +219,14 @@ func (d *Diamond) hang(i info.Info) {
 				Pulled:     true,
 			}
 			d.all[i] = conf
+			updates := make([]*observer.Observer, 0)
 			for _, o := range d.oo {
-				o.HotUpdateInfo(i, conf)
+				if !o.HotUpdateInfo(i, conf) {
+					continue
+				}
+				updates = append(updates, o)
 			}
-			d.Notify()
+			d.notify(updates...)
 		}
 	}()
 }

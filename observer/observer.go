@@ -56,7 +56,7 @@ func (o *Observer) Handle() {
 
 // UpdateInfo 更新配置
 func (o *Observer) UpdateInfo(i info.Info, conf *config.Config) {
-	_, ok :=  o.coll[i]
+	_, ok := o.coll[i]
 	if !ok {
 		return
 	}
@@ -64,11 +64,12 @@ func (o *Observer) UpdateInfo(i info.Info, conf *config.Config) {
 }
 
 // HotUpdateInfo 热更新配置
-func (o *Observer) HotUpdateInfo(i info.Info, conf *config.Config) {
-	_, ok :=  o.coll[i]
+func (o *Observer) HotUpdateInfo(i info.Info, conf *config.Config) bool {
+	_, ok := o.coll[i]
 	if !ok {
-		return
+		return false
 	}
 	o.consumed = false
 	o.coll[i] = conf
+	return true
 }
