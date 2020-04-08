@@ -140,6 +140,10 @@ func (d *Diamond) Register(oo ...*observer.Observer) {
 	}
 	for _, o := range oo {
 		for _, i := range o.Info() {
+			_, ok := d.all[i]
+			if ok {
+				continue
+			}
 			d.all[i] = &config.Config{}
 		}
 	}
