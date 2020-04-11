@@ -5,7 +5,7 @@ import (
 )
 
 const (
-	apiTimeout = 30 * time.Second
+	apiTimeout = 10 * time.Second
 )
 
 func timeInMilli() int64 {
