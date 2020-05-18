@@ -2,15 +2,17 @@ package aliacm
 
 import (
 	"fmt"
+	"math/rand"
+	"time"
+
 	"github.com/xiaojiaoyu100/aliyun-acm/v2/config"
 	"github.com/xiaojiaoyu100/aliyun-acm/v2/info"
 	"github.com/xiaojiaoyu100/aliyun-acm/v2/observer"
 	"github.com/xiaojiaoyu100/curlew"
 	"github.com/xiaojiaoyu100/roc"
-	"math/rand"
-	"time"
 
 	"context"
+
 	"github.com/sirupsen/logrus"
 	"github.com/xiaojiaoyu100/cast"
 )
@@ -208,16 +210,16 @@ func (d *Diamond) notify(oo ...*observer.Observer) {
 }
 
 func (d *Diamond) hang(i info.Info) {
+	// 不要在同一时间启动long pull
+	time.Sleep(time.Duration(randomIntInRange(20, 100)) * time.Millisecond)
 	go func() {
 		for {
-			// 防止网络差的时候没挂住
-			time.Sleep(time.Duration(randomIntInRange(20, 100)) * time.Millisecond)
-
 			content, newContentMD5, err := d.LongPull(i, d.all[i].ContentMD5)
 			d.checkErr(i, err)
 
 			// 防止MD5被重置，重新请求
 			if newContentMD5 == "" {
+				time.Sleep(time.Duration(randomIntInRange(1000, 1500)) * time.Millisecond)
 				continue
 			}
 			conf := &config.Config{
