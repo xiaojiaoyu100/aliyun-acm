@@ -210,10 +210,11 @@ func (d *Diamond) notify(oo ...*observer.Observer) {
 }
 
 func (d *Diamond) hang(i info.Info) {
-	// 不要在同一时间启动long pull
-	time.Sleep(time.Duration(randomIntInRange(20, 100)) * time.Millisecond)
 	go func() {
 		for {
+			// 不要在同一时间启动long pull
+			time.Sleep(time.Duration(randomIntInRange(20, 100)) * time.Millisecond)
+
 			content, newContentMD5, err := d.LongPull(i, d.all[i].ContentMD5)
 			d.checkErr(i, err)
 
