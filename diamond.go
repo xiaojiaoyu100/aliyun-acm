@@ -163,9 +163,8 @@ func (d *Diamond) Register(oo ...*observer.Observer) {
 				DataID: i.DataID,
 			}
 			b, err := d.GetConfig(req)
-			d.hang(i)
 			if err != nil {
-				d.checkErr(i, err)
+				d.checkErr(fmt.Errorf("DataID: %s, Group: %s, err: %+v", i.DataID, i.Group, err))
 				continue
 			}
 			conf = &config.Config{
@@ -187,6 +186,7 @@ func (d *Diamond) Register(oo ...*observer.Observer) {
 
 // NotifyAll is called after Register.
 func (d *Diamond) NotifyAll() {
+	d.hang()
 	oo := make([]*observer.Observer, 0)
 	for o := range d.filter {
 		oo = append(oo, o)
@@ -209,34 +209,59 @@ func (d *Diamond) notify(oo ...*observer.Observer) {
 	}
 }
 
-func (d *Diamond) hang(i info.Info) {
+func (d *Diamond) hang() {
 	go func() {
 		for {
-			// 不要在同一时间启动long pull
-			time.Sleep(time.Duration(randomIntInRange(20, 100)) * time.Millisecond)
-
-			content, newContentMD5, err := d.LongPull(i, d.all[i].ContentMD5)
-			d.checkErr(i, err)
-
-			// 防止MD5被重置，重新请求
-			if newContentMD5 == "" {
+			var infoParams []InfoParam
+			for i, conf := range d.all {
+				infoParams = append(infoParams, InfoParam{
+					i,
+					conf.ContentMD5,
+				})
+			}
+			ret, err := d.LongPull(infoParams...)
+			if err != nil {
+				d.checkErr(fmt.Errorf("acm long pull failed: %+v", err))
 				time.Sleep(time.Duration(randomIntInRange(1000, 1500)) * time.Millisecond)
 				continue
 			}
-			conf := &config.Config{
-				Content:    content,
-				ContentMD5: newContentMD5,
-				Pulled:     true,
+			for _, i := range ret {
+				j := curlew.NewJob()
+				j.Arg = i
+				j.Fn = func(ctx context.Context, arg interface{}) error {
+					i, ok := arg.(info.Info)
+					if !ok {
+						return nil
+					}
+					req := &GetConfigRequest{
+						Tenant: d.option.tenant,
+						DataID: i.DataID,
+						Group:  i.Group,
+					}
+					b, err := d.GetConfig(req)
+					if err != nil {
+						d.checkErr(fmt.Errorf("DataID: %s, Group: %s, err: %+v", i.DataID, i.Group, err))
+						return nil
+					}
+					newContentMD5 := Md5(string(b))
+					conf := &config.Config{
+						Content:    b,
+						ContentMD5: newContentMD5,
+						Pulled:     true,
+					}
+					d.all[i] = conf
+					oo, ok := d.infoColl[i]
+					if !ok {
+						return nil
+					}
+					for _, o := range oo {
+						o.HotUpdateInfo(i, conf)
+					}
+					d.notify(oo...)
+					return nil
+				}
+				d.dispatcher.Submit(j)
 			}
-			d.all[i] = conf
-			oo, ok := d.infoColl[i]
-			if !ok {
-				continue
-			}
-			for _, o := range oo {
-				o.HotUpdateInfo(i, conf)
-			}
-			d.notify(oo...)
 		}
 	}()
 }
@@ -246,14 +271,14 @@ func (d *Diamond) SetHook(h Hook) {
 	d.errHook = h
 }
 
-func (d *Diamond) checkErr(i info.Info, err error) {
+func (d *Diamond) checkErr(err error) {
 	if shouldIgnore(err) {
 		return
 	}
 	if d.errHook == nil {
 		return
 	}
-	d.errHook(i, err)
+	d.errHook(err)
 }
 
 // LoadingProgress shows the current load progress roughly.

@@ -24,7 +24,7 @@ func (d *Diamond) PublishConfig(args *PublishConfigRequest) error {
 		return err
 	}
 	header := make(http.Header)
-	if err := d.withUsual(args.Tenant, args.Group)(header); err != nil {
+	if err := d.withSignature(args.Tenant, args.Group)(header); err != nil {
 		return err
 	}
 	request := d.c.NewRequest().

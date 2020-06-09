@@ -25,14 +25,19 @@ func (d *Diamond) withLongPollingTimeout() headerSetter {
 	}
 }
 
-func (d *Diamond) withUsual(tenant, group string) headerSetter {
+func (d *Diamond) withSignature(tenant, group string) headerSetter {
 	return func(header http.Header) error {
 		if header == nil {
 			header = make(http.Header)
 		}
 		now := timeInMilli()
 		var toSignList []string
-		toSignList = append(toSignList, tenant, group, strconv.FormatInt(now, 10))
+		toSignList = append(toSignList, tenant)
+		if group != "" {
+			toSignList = append(toSignList, group)
+		}
+		toSignList = append(toSignList, strconv.FormatInt(now, 10))
+
 		str := strings.Join(toSignList, "+")
 		signature, err := HMACSHA1Encrypt(str, d.option.secretKey)
 		if err != nil {

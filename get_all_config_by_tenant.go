@@ -35,7 +35,7 @@ func (d *Diamond) GetAllConfigByTenant(args *GetAllConfigByTenantRequest) (*GetA
 		return nil, err
 	}
 	header := make(http.Header)
-	if err := d.withUsual(args.Tenant, "")(header); err != nil {
+	if err := d.withSignature(args.Tenant, "")(header); err != nil {
 		return nil, err
 	}
 	request := d.c.NewRequest().

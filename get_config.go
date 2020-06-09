@@ -26,7 +26,7 @@ func (d *Diamond) GetConfig(args *GetConfigRequest) ([]byte, error) {
 		return nil, err
 	}
 	header := make(http.Header)
-	if err := d.withUsual(args.Tenant, args.Group)(header); err != nil {
+	if err := d.withSignature(args.Tenant, args.Group)(header); err != nil {
 		return nil, err
 	}
 	request := d.c.NewRequest().

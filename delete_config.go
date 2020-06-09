@@ -25,7 +25,7 @@ func (d *Diamond) DeleteConfig(args *DeleteConfigRequest) error {
 
 	header := make(http.Header)
 
-	if err := d.withUsual(args.Tenant, args.Group)(header); err != nil {
+	if err := d.withSignature(args.Tenant, args.Group)(header); err != nil {
 		return err
 	}
 
