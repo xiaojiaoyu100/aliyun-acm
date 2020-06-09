@@ -58,7 +58,7 @@ func main() {
 		return
 	}
 
-	var f = func(h info.Info, err error) {
+	var f = func(err error) {
 		fmt.Println(err)
 	}
 	d.SetHook(f)
