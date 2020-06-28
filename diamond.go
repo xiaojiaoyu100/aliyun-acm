@@ -3,6 +3,7 @@ package aliacm
 import (
 	"fmt"
 	"math/rand"
+	"sync"
 	"time"
 
 	"github.com/xiaojiaoyu100/aliyun-acm/v2/config"
@@ -58,9 +59,9 @@ type Diamond struct {
 	c          *cast.Cast
 	errHook    Hook
 	r          *rand.Rand
-	infoColl   map[info.Info][]*observer.Observer
-	filter     map[*observer.Observer]struct{}
-	all        map[info.Info]*config.Config
+	infoColl   sync.Map // info.Info: []*observer.Observer
+	filter     sync.Map // *observer.Observer: struct{｝
+	all        sync.Map // info.Info: *config.Config
 	dispatcher *curlew.Dispatcher
 	cache      *roc.Cache
 }
@@ -108,9 +109,6 @@ func New(addr, tenant, accessKey, secretKey string, setters ...Setter) (*Diamond
 		option:     option,
 		c:          c,
 		r:          r,
-		infoColl:   make(map[info.Info][]*observer.Observer),
-		filter:     make(map[*observer.Observer]struct{}),
-		all:        make(map[info.Info]*config.Config),
 		dispatcher: dispatcher,
 		cache:      cache,
 	}
@@ -131,28 +129,38 @@ func randomIntInRange(min, max int) int {
 // Register registers an observer list.
 func (d *Diamond) Register(oo ...*observer.Observer) {
 	for _, o := range oo {
-		_, ok := d.filter[o]
+		_, ok := d.filter.Load(o)
 		if ok {
 			continue
 		}
-		d.filter[o] = struct{}{}
-		for _, in := range o.Info() {
-			d.infoColl[in] = append(d.infoColl[in], o)
+		d.filter.Store(o, struct{}{})
+		for _, i := range o.Info() {
+			oov, ok := d.infoColl.Load(i)
+			var oo []*observer.Observer
+			if ok {
+				oo = oov.([]*observer.Observer)
+			}
+			oo = append(oo, o)
+			d.infoColl.Store(i, oo)
 		}
 	}
 	for _, o := range oo {
 		for _, i := range o.Info() {
-			_, ok := d.all[i]
+			_, ok := d.all.Load(i)
 			if ok {
 				continue
 			}
-			d.all[i] = &config.Config{}
+			d.all.Store(i, &config.Config{})
 		}
 	}
 
 	for _, o := range oo {
 		for _, i := range o.Info() {
-			conf := d.all[i]
+			confv, _ := d.all.Load(i)
+			var conf *config.Config
+			if confv != nil {
+				conf, _ = confv.(*config.Config)
+			}
 			if conf != nil && conf.Pulled {
 				o.UpdateInfo(i, conf)
 				continue
@@ -172,8 +180,13 @@ func (d *Diamond) Register(oo ...*observer.Observer) {
 				ContentMD5: Md5(string(b)),
 				Pulled:     true,
 			}
-			d.all[i] = conf
-			oo, ok := d.infoColl[i]
+			d.all.Store(i, conf)
+
+			oov, ok := d.infoColl.Load(i)
+			if !ok {
+				continue
+			}
+			oo, ok := oov.([]*observer.Observer)
 			if !ok {
 				continue
 			}
@@ -188,9 +201,14 @@ func (d *Diamond) Register(oo ...*observer.Observer) {
 func (d *Diamond) NotifyAll() {
 	d.hang()
 	oo := make([]*observer.Observer, 0)
-	for o := range d.filter {
+	d.filter.Range(func(key, value interface{}) bool {
+		o, ok := key.(*observer.Observer)
+		if !ok {
+			return true
+		}
 		oo = append(oo, o)
-	}
+		return true
+	})
 	d.notify(oo...)
 }
 
@@ -212,58 +230,90 @@ func (d *Diamond) notify(oo ...*observer.Observer) {
 func (d *Diamond) hang() {
 	go func() {
 		for {
+			time.Sleep(time.Duration(randomIntInRange(1000, 1500)) * time.Millisecond)
 			var infoParams []InfoParam
-			for i, conf := range d.all {
+			d.all.Range(func(key, value interface{}) bool {
+				i, ok := key.(info.Info)
+				if !ok {
+					return true
+				}
+				conf, ok := value.(*config.Config)
+				if !ok {
+					return true
+				}
 				infoParams = append(infoParams, InfoParam{
 					i,
 					conf.ContentMD5,
 				})
-			}
+				return true
+			})
 			ret, err := d.LongPull(infoParams...)
 			if err != nil {
 				d.checkErr(fmt.Errorf("acm long pull failed: %+v", err))
-				time.Sleep(time.Duration(randomIntInRange(1000, 1500)) * time.Millisecond)
+				continue
+			}
+			if len(ret) == 0 {
 				continue
 			}
 			for _, i := range ret {
 				j := curlew.NewJob()
 				j.Arg = i
-				j.Fn = func(ctx context.Context, arg interface{}) error {
-					i, ok := arg.(info.Info)
-					if !ok {
-						return nil
-					}
-					req := &GetConfigRequest{
-						Tenant: d.option.tenant,
-						DataID: i.DataID,
-						Group:  i.Group,
-					}
-					b, err := d.GetConfig(req)
-					if err != nil {
-						d.checkErr(fmt.Errorf("DataID: %s, Group: %s, err: %+v", i.DataID, i.Group, err))
-						return nil
-					}
-					newContentMD5 := Md5(string(b))
-					conf := &config.Config{
-						Content:    b,
-						ContentMD5: newContentMD5,
-						Pulled:     true,
-					}
-					d.all[i] = conf
-					oo, ok := d.infoColl[i]
-					if !ok {
-						return nil
-					}
-					for _, o := range oo {
-						o.HotUpdateInfo(i, conf)
-					}
-					d.notify(oo...)
-					return nil
-				}
+				j.Fn = d.update
 				d.dispatcher.Submit(j)
 			}
 		}
 	}()
+}
+
+func (d *Diamond) update(ctx context.Context, arg interface{}) error {
+	i, ok := arg.(info.Info)
+	if !ok {
+		return nil
+	}
+	preConfv, ok := d.all.Load(i)
+	if !ok {
+		return nil
+	}
+	preConf, ok := preConfv.(*config.Config)
+	if !ok {
+		return nil
+	}
+
+	req := &GetConfigRequest{
+		Tenant: d.option.tenant,
+		DataID: i.DataID,
+		Group:  i.Group,
+	}
+	b, err := d.GetConfig(req)
+	if err != nil {
+		d.checkErr(fmt.Errorf("DataID: %s, Group: %s, err: %+v", i.DataID, i.Group, err))
+		return nil
+	}
+	newContentMD5 := Md5(string(b))
+
+	if preConf.ContentMD5 == newContentMD5 {
+		return nil
+	}
+
+	conf := &config.Config{
+		Content:    b,
+		ContentMD5: newContentMD5,
+		Pulled:     true,
+	}
+	d.all.Store(i, conf)
+	oov, ok := d.infoColl.Load(i)
+	if !ok {
+		return nil
+	}
+	oo, ok := oov.([]*observer.Observer)
+	if !ok {
+		return nil
+	}
+	for _, o := range oo {
+		o.HotUpdateInfo(i, conf)
+	}
+	d.notify(oo...)
+	return nil
 }
 
 // SetHook 用于提醒关键错误
@@ -279,15 +329,4 @@ func (d *Diamond) checkErr(err error) {
 		return
 	}
 	d.errHook(err)
-}
-
-// LoadingProgress shows the current load progress roughly.
-func (d *Diamond) LoadingProgress() string {
-	var ret = 0
-	for _, conf := range d.all {
-		if conf.Pulled {
-			ret++
-		}
-	}
-	return fmt.Sprintf("%d/%d", ret, len(d.all))
 }
