@@ -2,6 +2,8 @@
 
 aliyun-acm是对[阿里云应用配置管理](https://help.aliyun.com/product/59604.html)的封装
 
+[![GoDoc](https://godoc.org/github.com/xiaojiaoyu100/aliyun-acm?status.svg)](https://godoc.org/github.com/xiaojiaoyu100/aliyun-acm)
+
 ## Usage
 
 ```go
