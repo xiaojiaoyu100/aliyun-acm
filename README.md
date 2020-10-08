@@ -25,7 +25,7 @@ func handle(coll map[info.Info]*config.Config) {
     }   
     
     a := info.Info{DataID:"YourAnotherGroup", Group:"YourAnotherDataID"}
-    configA, ok := coll[i]
+    configA, ok := coll[a]
     if !ok {
         return 
     }   
@@ -33,10 +33,9 @@ func handle(coll map[info.Info]*config.Config) {
 
 func main() {
 	d, err := aliacm.New(
-		addr,
-		tenant,
-		accessKey,
-		secretKey)
+    		aliacm.WithAcm("addr", "tenant", "accessKey", "secretKey"),
+    		// aliacm.WithKms("regionId", "accessKey", "secretKey"),
+    	)
 	if err != nil {
 		fmt.Println(err)
 		return

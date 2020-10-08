@@ -2,8 +2,13 @@ package aliacm
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"net/http"
+	"strings"
+
+	"github.com/xiaojiaoyu100/cast"
+	"github.com/xiaojiaoyu100/lizard/convert"
 )
 
 // GetConfigRequest 获取配置参数
@@ -42,5 +47,50 @@ func (d *Diamond) GetConfig(args *GetConfigRequest) ([]byte, error) {
 	if !response.Success() {
 		return nil, errors.New(response.String())
 	}
-	return response.Body(), nil
+
+	config, err := d.getConfig(response, args.DataID)
+	if err != nil {
+		return nil, err
+	}
+
+	return config, nil
+}
+
+func (d *Diamond) getConfig(response *cast.Response, dataId string) ([]byte, error) {
+	config := response.Body()
+	if d.kmsClient == nil {
+		return config, nil
+	}
+
+	body := convert.ByteToString(response.Body())
+	switch {
+	case strings.HasPrefix(dataId, "cipher-kms-aes-128-"):
+		dataKey, err := d.kmsDecrypt(response.Header().Get("Encrypted-Data-Key"))
+		if err != nil {
+			return nil, err
+		}
+
+		bodyByte, err := base64.StdEncoding.DecodeString(body)
+		if err != nil {
+			return nil, err
+		}
+		dataKeyByte, err := base64.StdEncoding.DecodeString(dataKey)
+		if err != nil {
+			return nil, err
+		}
+
+		config, err = aesDecrypt(bodyByte, dataKeyByte)
+		if err != nil {
+			return nil, err
+		}
+
+	case strings.HasPrefix(dataId, "cipher-"):
+		configStr, err := d.kmsDecrypt(body)
+		if err != nil {
+			return nil, err
+		}
+		config = convert.StringToByte(configStr)
+	}
+
+	return config, nil
 }

@@ -1,18 +1,19 @@
 package aliacm
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"math/rand"
 	"sync"
 	"time"
 
+	"github.com/aliyun/alibaba-cloud-sdk-go/services/kms"
 	"github.com/xiaojiaoyu100/aliyun-acm/v2/config"
 	"github.com/xiaojiaoyu100/aliyun-acm/v2/info"
 	"github.com/xiaojiaoyu100/aliyun-acm/v2/observer"
 	"github.com/xiaojiaoyu100/curlew"
 	"github.com/xiaojiaoyu100/roc"
-
-	"context"
 
 	"github.com/sirupsen/logrus"
 	"github.com/xiaojiaoyu100/cast"
@@ -57,6 +58,7 @@ type Option struct {
 type Diamond struct {
 	option     Option
 	c          *cast.Cast
+	kmsClient  *kms.Client
 	errHook    Hook
 	r          *rand.Rand
 	infoColl   sync.Map // info.Info: []*observer.Observer
@@ -67,13 +69,11 @@ type Diamond struct {
 }
 
 // New 产生Diamond实例
-func New(addr, tenant, accessKey, secretKey string, setters ...Setter) (*Diamond, error) {
-	option := Option{
-		addr:      addr,
-		tenant:    tenant,
-		accessKey: accessKey,
-		secretKey: secretKey,
+func New(setters ...Setter) (*Diamond, error) {
+	if len(setters) == 0 {
+		return nil, errors.New("Lack of setter ")
 	}
+
 	c, err := cast.New(
 		cast.WithRetry(2),
 		cast.WithHTTPClientTimeout(60*time.Second),
@@ -106,7 +106,6 @@ func New(addr, tenant, accessKey, secretKey string, setters ...Setter) (*Diamond
 	}
 
 	d := &Diamond{
-		option:     option,
 		c:          c,
 		r:          r,
 		dispatcher: dispatcher,
