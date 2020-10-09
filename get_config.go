@@ -56,7 +56,8 @@ func (d *Diamond) GetConfig(args *GetConfigRequest) ([]byte, error) {
 	return config, nil
 }
 
-func (d *Diamond) getConfig(response *cast.Response, dataId string) ([]byte, error) {
+// getConfig 适配配置kms加密
+func (d *Diamond) getConfig(response *cast.Response, dataID string) ([]byte, error) {
 	config := response.Body()
 	if d.kmsClient == nil {
 		return config, nil
@@ -64,7 +65,7 @@ func (d *Diamond) getConfig(response *cast.Response, dataId string) ([]byte, err
 
 	body := convert.ByteToString(response.Body())
 	switch {
-	case strings.HasPrefix(dataId, "cipher-kms-aes-128-"):
+	case strings.HasPrefix(dataID, "cipher-kms-aes-128-"):
 		dataKey, err := d.kmsDecrypt(response.Header().Get("Encrypted-Data-Key"))
 		if err != nil {
 			return nil, err
@@ -84,7 +85,7 @@ func (d *Diamond) getConfig(response *cast.Response, dataId string) ([]byte, err
 			return nil, err
 		}
 
-	case strings.HasPrefix(dataId, "cipher-"):
+	case strings.HasPrefix(dataID, "cipher-"):
 		configStr, err := d.kmsDecrypt(body)
 		if err != nil {
 			return nil, err
