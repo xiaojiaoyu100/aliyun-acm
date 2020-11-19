@@ -18,8 +18,13 @@ type GetConfigRequest struct {
 	Group  string `url:"group"`
 }
 
+type GetConfigResponse struct {
+	Content        []byte
+	DecryptContent []byte
+}
+
 // GetConfig 获取配置
-func (d *Diamond) GetConfig(args *GetConfigRequest) ([]byte, error) {
+func (d *Diamond) GetConfig(args *GetConfigRequest) (*GetConfigResponse, error) {
 	if len(args.Group) == 0 {
 		args.Group = DefaultGroup
 	}
@@ -57,8 +62,11 @@ func (d *Diamond) GetConfig(args *GetConfigRequest) ([]byte, error) {
 }
 
 // getConfig 适配配置kms加密
-func (d *Diamond) getConfig(response *cast.Response, dataID string) ([]byte, error) {
-	config := response.Body()
+func (d *Diamond) getConfig(response *cast.Response, dataID string) (*GetConfigResponse, error) {
+	config := &GetConfigResponse{
+		Content:        response.Body(),
+		DecryptContent: response.Body(),
+	}
 	if d.kmsClient == nil {
 		return config, nil
 	}
@@ -80,7 +88,7 @@ func (d *Diamond) getConfig(response *cast.Response, dataID string) ([]byte, err
 			return nil, err
 		}
 
-		config, err = aesDecrypt(bodyByte, dataKeyByte)
+		config.DecryptContent, err = aesDecrypt(bodyByte, dataKeyByte)
 		if err != nil {
 			return nil, err
 		}
@@ -90,7 +98,8 @@ func (d *Diamond) getConfig(response *cast.Response, dataID string) ([]byte, err
 		if err != nil {
 			return nil, err
 		}
-		config = convert.StringToByte(configStr)
+		config.DecryptContent = convert.StringToByte(configStr)
+
 	}
 
 	return config, nil

@@ -169,14 +169,14 @@ func (d *Diamond) Register(oo ...*observer.Observer) {
 				Group:  i.Group,
 				DataID: i.DataID,
 			}
-			b, err := d.GetConfig(req)
+			c, err := d.GetConfig(req)
 			if err != nil {
 				d.checkErr(fmt.Errorf("DataID: %s, Group: %s, err: %+v", i.DataID, i.Group, err))
 				continue
 			}
 			conf = &config.Config{
-				Content:    b,
-				ContentMD5: Md5(string(b)),
+				Content:    c.DecryptContent,
+				ContentMD5: Md5(string(c.Content)),
 				Pulled:     true,
 			}
 			d.all.Store(i, conf)
@@ -283,19 +283,19 @@ func (d *Diamond) update(ctx context.Context, arg interface{}) error {
 		DataID: i.DataID,
 		Group:  i.Group,
 	}
-	b, err := d.GetConfig(req)
+	c, err := d.GetConfig(req)
 	if err != nil {
 		d.checkErr(fmt.Errorf("DataID: %s, Group: %s, err: %+v", i.DataID, i.Group, err))
 		return nil
 	}
-	newContentMD5 := Md5(string(b))
+	newContentMD5 := Md5(string(c.Content))
 
 	if preConf.ContentMD5 == newContentMD5 {
 		return nil
 	}
 
 	conf := &config.Config{
-		Content:    b,
+		Content:    c.DecryptContent,
 		ContentMD5: newContentMD5,
 		Pulled:     true,
 	}
